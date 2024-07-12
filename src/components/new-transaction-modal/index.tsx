@@ -1,15 +1,57 @@
-import * as Dialog from "@radix-ui/react-dialog";
-import { ArrowCircleDown, ArrowCircleUp, X } from "phosphor-react";
+import { zodResolver } from '@hookform/resolvers/zod'
+import * as Dialog from '@radix-ui/react-dialog'
+import { ArrowCircleDown, ArrowCircleUp, X } from 'phosphor-react'
+import { useContext } from 'react'
+import { Controller, useForm } from 'react-hook-form'
+import { z } from 'zod'
 
+import { TransactionsContext } from '../../contexts/transactions'
 import {
   CloseButton,
   Content,
   Overlay,
   TransactionType,
   TransactionTypeButton,
-} from "./styles";
+} from './styles'
+
+const newTransactionFormSchema = z.object({
+  description: z.string(),
+  price: z.number(),
+  category: z.string(),
+  type: z.enum(['income', 'outcome']),
+})
+
+type NewTransactionFormInputs = z.infer<typeof newTransactionFormSchema>
 
 export function NewTransactionModal() {
+  const { createTransaction } = useContext(TransactionsContext)
+
+  const {
+    control,
+    formState: { isSubmitting },
+    handleSubmit,
+    register,
+    reset,
+  } = useForm<NewTransactionFormInputs>({
+    resolver: zodResolver(newTransactionFormSchema),
+    defaultValues: {
+      type: 'income',
+    },
+  })
+
+  async function handleCreateNewTransaction(data: NewTransactionFormInputs) {
+    const { category, description, price, type } = data
+
+    await createTransaction({
+      category,
+      description,
+      price,
+      type,
+    })
+
+    reset()
+  }
+
   return (
     <Dialog.Portal>
       <Overlay />
@@ -21,26 +63,57 @@ export function NewTransactionModal() {
           <X />
         </CloseButton>
 
-        <form action="">
-          <input type="text" placeholder="Descrição" required />
-          <input type="number" placeholder="Preço" required />
-          <input type="text" placeholder="Categoria" required />
+        <form onSubmit={handleSubmit(handleCreateNewTransaction)}>
+          <input
+            type="text"
+            placeholder="Descrição"
+            required
+            {...register('description')}
+          />
 
-          <TransactionType>
-            <TransactionTypeButton $variant="income" value="income">
-              <ArrowCircleUp />
-              Entrada
-            </TransactionTypeButton>
+          <input
+            type="number"
+            placeholder="Preço"
+            step={0.1}
+            required
+            {...register('price', { valueAsNumber: true })}
+          />
 
-            <TransactionTypeButton $variant="outcome" value="outcome">
-              <ArrowCircleDown />
-              Saída
-            </TransactionTypeButton>
-          </TransactionType>
+          <input
+            type="text"
+            placeholder="Categoria"
+            required
+            {...register('category')}
+          />
 
-          <button type="submit">Cadastrar</button>
+          <Controller
+            control={control}
+            name="type"
+            render={({ field }) => {
+              return (
+                <TransactionType
+                  onValueChange={field.onChange}
+                  value={field.value}
+                >
+                  <TransactionTypeButton $variant="income" value="income">
+                    <ArrowCircleUp />
+                    Entrada
+                  </TransactionTypeButton>
+
+                  <TransactionTypeButton $variant="outcome" value="outcome">
+                    <ArrowCircleDown />
+                    Saída
+                  </TransactionTypeButton>
+                </TransactionType>
+              )
+            }}
+          />
+
+          <button type="submit" disabled={isSubmitting}>
+            Cadastrar
+          </button>
         </form>
       </Content>
     </Dialog.Portal>
-  );
+  )
 }
